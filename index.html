@@ -201,6 +201,34 @@
             word-wrap: break-word;
         }
 
+        .status-indicator {
+            padding: 12px 16px;
+            background: var(--color-bg-elevated);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+
+        .status-code {
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .status-success {
+            color: var(--color-success);
+            border-color: rgba(34, 197, 94, 0.3);
+            background: rgba(34, 197, 94, 0.05);
+        }
+
+        .status-error {
+            color: var(--color-danger);
+            border-color: rgba(239, 68, 68, 0.3);
+            background: rgba(239, 68, 68, 0.05);
+        }
+
         .history-list {
             display: flex;
             flex-direction: column;
@@ -428,6 +456,14 @@
                 </div>
 
                 <div class="form-group">
+                    <label class="form-label">Status HTTP</label>
+                    <div id="responseStatus" class="status-indicator">
+                        <span class="status-code">-</span>
+                        <span class="status-text">Oczekiwanie na zapytanie</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
                     <label class="form-label">Request URL</label>
                     <div class="response-container" id="requestUrl">
                         <pre>Wyślij zapytanie, aby zobaczyć URL</pre>
@@ -549,6 +585,17 @@
             paramsContainer.appendChild(paramsGrid);
         }
 
+        function updateStatusDisplay(status, text, isError) {
+            const statusElement = document.getElementById('responseStatus');
+            const statusCodeElement = statusElement.querySelector('.status-code');
+            const statusTextElement = statusElement.querySelector('.status-text');
+
+            statusCodeElement.textContent = status || '-';
+            statusTextElement.textContent = text || 'Nieznany';
+
+            statusElement.className = 'status-indicator ' + (isError ? 'status-error' : 'status-success');
+        }
+
         async function sendRequest() {
             const endpointKey = document.getElementById('endpoint').value;
             const apiKey = document.getElementById('apiKey').value;
@@ -581,33 +628,45 @@
             }
             
             const baseUrl = `${API_BASE}/${info.methodName}/?${params.toString()}`;
-            // Bezpośrednie wywołanie bez proxy
             const url = baseUrl;
             
             document.getElementById('requestUrl').innerHTML = `<pre>${method} ${baseUrl}</pre>`;
             document.getElementById('responseJson').innerHTML = '<pre><div class="loading-spinner"></div> Ładowanie...</pre>';
             
+            // Reset status
+            document.getElementById('responseStatus').className = 'status-indicator';
+            document.getElementById('responseStatus').querySelector('.status-code').textContent = '...';
+            document.getElementById('responseStatus').querySelector('.status-text').textContent = 'Wysyłanie...';
+
             try {
                 const fetchOptions = { method: method };
                 
                 const response = await fetch(url, fetchOptions);
                 const data = await response.json();
                 
+                // Aktualizacja statusu
+                updateStatusDisplay(response.status, response.statusText || (response.ok ? 'OK' : 'Error'), !response.ok);
+
                 document.getElementById('responseJson').innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
                 
                 addToHistory({
-                    endpointKey: endpointKey, // klucz w obiekcie endpoints
-                    methodName: info.methodName, // nazwa metody API
+                    endpointKey: endpointKey,
+                    methodName: info.methodName,
                     url: baseUrl,
                     method: method,
                     params: Object.fromEntries(params),
                     response: data,
+                    statusCode: response.status,
+                    statusText: response.statusText || (response.ok ? 'OK' : 'Error'),
                     status: response.ok ? 'success' : 'error',
                     timestamp: new Date()
                 });
                 
                 showToast('✓ Zapytanie wykonane pomyślnie');
             } catch (error) {
+                // Błąd sieciowy
+                updateStatusDisplay('ERR', 'Błąd sieci / CORS', true);
+
                 document.getElementById('responseJson').innerHTML = `<pre style="color: var(--color-danger);">Błąd: ${error.message}\n\nUpewnij się, że serwer API pozwala na połączenia CORS lub użyj wtyczki przeglądarki wyłączającej CORS do testów.</pre>`;
                 
                 addToHistory({
@@ -617,6 +676,8 @@
                     method: method,
                     params: Object.fromEntries(params),
                     response: { error: error.message },
+                    statusCode: 'ERR',
+                    statusText: 'Network Error / CORS',
                     status: 'error',
                     timestamp: new Date()
                 });
@@ -674,7 +735,8 @@
                 
                 const status = document.createElement('span');
                 status.className = `history-status ${entry.status}`;
-                status.textContent = entry.status === 'success' ? 'Sukces' : 'Błąd';
+                // Wyświetlaj kod HTTP w historii jeśli dostępny
+                status.textContent = entry.statusCode ? `${entry.statusCode} ${entry.statusText}` : (entry.status === 'success' ? 'Sukces' : 'Błąd');
                 
                 item.appendChild(header);
                 item.appendChild(params);
@@ -707,6 +769,15 @@
                     }
                 });
                 
+                // Przywróć status
+                if (entry.statusCode) {
+                    updateStatusDisplay(entry.statusCode, entry.statusText, entry.status === 'error');
+                } else {
+                     document.getElementById('responseStatus').className = 'status-indicator';
+                     document.getElementById('responseStatus').querySelector('.status-code').textContent = '-';
+                     document.getElementById('responseStatus').querySelector('.status-text').textContent = 'Załadowano z historii';
+                }
+
                 document.getElementById('requestUrl').innerHTML = `<pre>${entry.method || 'GET'} ${entry.url}</pre>`;
                 document.getElementById('responseJson').innerHTML = `<pre>${JSON.stringify(entry.response, null, 2)}</pre>`;
             }, 100);
