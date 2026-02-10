@@ -381,18 +381,15 @@
                         <label class="form-label">Klucz API</label>
                         <input type="text" class="form-input" id="apiKey" value="34574ba5-4ce4-432b-ae87-0c26cec9809b">
                     </div>
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="useCorsProxy" checked>
-                        <label for="useCorsProxy">Użyj CORS Proxy (rozwiązuje błędy CORS w przeglądarce)</label>
-                    </div>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Wybierz endpoint</label>
                     <select class="form-select" id="endpoint">
-                        <option value="dbtimetable_get">dbtimetable_get - Rozkład jazdy</option>
-                        <option value="busestrams_get">busestrams_get - Pozycje pojazdów</option>
                         <option value="dbstore_get">dbstore_get - Lista przystanków</option>
+                        <option value="dbtimetable_lines">dbtimetable_get - Linie na przystanku</option>
+                        <option value="dbtimetable_schedule">dbtimetable_get - Rozkład linii</option>
+                        <option value="busestrams_get">busestrams_get - Pozycje pojazdów</option>
                     </select>
                 </div>
 
@@ -468,37 +465,49 @@
 
     <script>
         const API_BASE = 'https://api.um.warszawa.pl/api/action';
-        const CORS_PROXY = 'https://corsproxy.io/?';
         
         const endpoints = {
-            dbtimetable_get: {
-                name: 'dbtimetable_get',
+            dbstore_get: {
+                methodName: 'dbstore_get',
+                id: 'ab75c33d-3a26-4342-b36a-6e5fef0a3ac3',
+                idParam: 'id',
+                description: 'Pobiera listę wszystkich przystanków (dbstore_get). Wymagany klucz API.',
+                defaultMethod: 'GET',
+                params: [
+                    { name: 'name', label: 'Nazwa przystanku (filtr)', required: false, placeholder: 'Służewiec' }
+                ]
+            },
+            dbtimetable_lines: {
+                methodName: 'dbtimetable_get',
+                id: '88cd555f-6f31-43ca-9de4-66c479ad5942',
+                idParam: 'id',
+                description: 'Pobiera listę linii autobusowych/tramwajowych dostępnych na danym słupku przystankowym (dbtimetable_get).',
+                defaultMethod: 'GET',
+                params: [
+                    { name: 'busstopId', label: 'ID przystanku', required: true, placeholder: '7009' },
+                    { name: 'busstopNr', label: 'Numer słupka', required: true, placeholder: '01' }
+                ]
+            },
+            dbtimetable_schedule: {
+                methodName: 'dbtimetable_get',
                 id: 'e923fa0e-d96c-43f9-ae6e-60518c9f3238',
-                description: 'Pobiera rozkład jazdy dla konkretnego przystanku i linii',
+                idParam: 'id',
+                description: 'Pobiera godziny odjazdów dla konkretnej linii z konkretnego słupka (dbtimetable_get).',
                 defaultMethod: 'GET',
                 params: [
                     { name: 'busstopId', label: 'ID przystanku', required: true, placeholder: '7009' },
                     { name: 'busstopNr', label: 'Numer słupka', required: true, placeholder: '01' },
-                    { name: 'line', label: 'Numer linii', required: false, placeholder: '189' }
+                    { name: 'line', label: 'Numer linii', required: true, placeholder: '189' }
                 ]
             },
             busestrams_get: {
-                name: 'busestrams_get',
+                methodName: 'busestrams_get',
                 id: 'f2e5503e-927d-4ad3-9500-4ab9e55deb59',
-                description: 'Pobiera aktualne pozycje autobusów (type=1) i tramwajów (type=2). Parametr type jest OBLIGATORYJNY.',
-                defaultMethod: 'GET',
+                idParam: 'resource_id',
+                description: 'Pobiera aktualne współrzędne pojazdów (autobusy/tramwaje) w czasie rzeczywistym. Aktualizacja co 10s.',
+                defaultMethod: 'POST',
                 params: [
-                    { name: 'type', label: 'Typ pojazdu (1=autobus, 2=tramwaj)', required: true, placeholder: '1' },
-                    { name: 'line', label: 'Numer linii (opcjonalny)', required: false, placeholder: '189' }
-                ]
-            },
-            dbstore_get: {
-                name: 'dbstore_get',
-                id: 'ab75c33d-3a26-4342-b36a-6e5fef0a3ac3',
-                description: 'Pobiera listę wszystkich przystanków',
-                defaultMethod: 'GET',
-                params: [
-                    { name: 'name', label: 'Nazwa przystanku (filtr)', required: false, placeholder: 'Służewiec' }
+                    { name: 'type', label: 'Typ pojazdu (1=autobus, 2=tramwaj)', required: true, placeholder: '1' }
                 ]
             }
         };
@@ -506,8 +515,8 @@
         let requestHistory = [];
 
         function updateEndpointInfo() {
-            const endpoint = document.getElementById('endpoint').value;
-            const info = endpoints[endpoint];
+            const endpointKey = document.getElementById('endpoint').value;
+            const info = endpoints[endpointKey];
             
             document.getElementById('endpointInfo').textContent = info.description;
             document.getElementById('httpMethod').value = info.defaultMethod || 'GET';
@@ -541,11 +550,10 @@
         }
 
         async function sendRequest() {
-            const endpoint = document.getElementById('endpoint').value;
+            const endpointKey = document.getElementById('endpoint').value;
             const apiKey = document.getElementById('apiKey').value;
             const method = document.getElementById('httpMethod').value;
-            const useCorsProxy = document.getElementById('useCorsProxy').checked;
-            const info = endpoints[endpoint];
+            const info = endpoints[endpointKey];
             
             if (!apiKey) {
                 showToast('❌ Wprowadź klucz API', true);
@@ -553,7 +561,8 @@
             }
             
             const params = new URLSearchParams();
-            params.append('resource_id', info.id);
+            // Dynamiczny parametr ID zgodny z dokumentacją (id dla timetable, resource_id dla buses)
+            params.append(info.idParam, info.id);
             params.append('apikey', apiKey);
             
             let allRequiredFilled = true;
@@ -571,10 +580,11 @@
                 return;
             }
             
-            const baseUrl = `${API_BASE}/${endpoint}/?${params.toString()}`;
-            const url = useCorsProxy ? `${CORS_PROXY}${encodeURIComponent(baseUrl)}` : baseUrl;
+            const baseUrl = `${API_BASE}/${info.methodName}/?${params.toString()}`;
+            // Bezpośrednie wywołanie bez proxy
+            const url = baseUrl;
             
-            document.getElementById('requestUrl').innerHTML = `<pre>${method} ${baseUrl}${useCorsProxy ? '\n\n(przez CORS Proxy)' : ''}</pre>`;
+            document.getElementById('requestUrl').innerHTML = `<pre>${method} ${baseUrl}</pre>`;
             document.getElementById('responseJson').innerHTML = '<pre><div class="loading-spinner"></div> Ładowanie...</pre>';
             
             try {
@@ -586,10 +596,10 @@
                 document.getElementById('responseJson').innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
                 
                 addToHistory({
-                    endpoint: endpoint,
+                    endpointKey: endpointKey, // klucz w obiekcie endpoints
+                    methodName: info.methodName, // nazwa metody API
                     url: baseUrl,
                     method: method,
-                    usedProxy: useCorsProxy,
                     params: Object.fromEntries(params),
                     response: data,
                     status: response.ok ? 'success' : 'error',
@@ -598,13 +608,13 @@
                 
                 showToast('✓ Zapytanie wykonane pomyślnie');
             } catch (error) {
-                document.getElementById('responseJson').innerHTML = `<pre style="color: var(--color-danger);">Błąd: ${error.message}\n\n${useCorsProxy ? 'CORS Proxy jest włączony, ale wystąpił błąd.' : 'Włącz CORS Proxy w konfiguracji, aby rozwiązać problem z CORS.'}</pre>`;
+                document.getElementById('responseJson').innerHTML = `<pre style="color: var(--color-danger);">Błąd: ${error.message}\n\nUpewnij się, że serwer API pozwala na połączenia CORS lub użyj wtyczki przeglądarki wyłączającej CORS do testów.</pre>`;
                 
                 addToHistory({
-                    endpoint: endpoint,
+                    endpointKey: endpointKey,
+                    methodName: info.methodName,
                     url: baseUrl,
                     method: method,
-                    usedProxy: useCorsProxy,
                     params: Object.fromEntries(params),
                     response: { error: error.message },
                     status: 'error',
@@ -641,9 +651,11 @@
                 const header = document.createElement('div');
                 header.className = 'history-header';
                 
+                const endpointLabel = endpoints[entry.endpointKey] ? endpoints[entry.endpointKey].methodName : entry.methodName;
+
                 const endpoint = document.createElement('div');
                 endpoint.className = 'history-endpoint';
-                endpoint.innerHTML = `<span style="color: var(--color-accent)">${entry.method || 'GET'}</span> ${entry.endpoint}${entry.usedProxy ? ' <span style="color: var(--color-warning)">🔒 Proxy</span>' : ''}`;
+                endpoint.innerHTML = `<span style="color: var(--color-accent)">${entry.method || 'GET'}</span> ${endpointLabel}`;
                 
                 const time = document.createElement('div');
                 time.className = 'history-time';
@@ -655,7 +667,7 @@
                 const params = document.createElement('div');
                 params.className = 'history-params';
                 const paramsList = Object.entries(entry.params)
-                    .filter(([key]) => key !== 'resource_id' && key !== 'apikey')
+                    .filter(([key]) => key !== 'resource_id' && key !== 'id' && key !== 'apikey')
                     .map(([key, value]) => `${key}=${value}`)
                     .join(', ');
                 params.textContent = paramsList || 'Brak parametrów';
@@ -675,7 +687,12 @@
         function loadFromHistory(index) {
             const entry = requestHistory[index];
             
-            document.getElementById('endpoint').value = entry.endpoint;
+            // Ustaw endpoint w select
+            const endpointSelect = document.getElementById('endpoint');
+            if (entry.endpointKey && endpoints[entry.endpointKey]) {
+                endpointSelect.value = entry.endpointKey;
+            }
+            
             updateEndpointInfo();
             
             setTimeout(() => {
@@ -683,18 +700,14 @@
                     document.getElementById('httpMethod').value = entry.method;
                 }
                 
-                if (entry.usedProxy !== undefined) {
-                    document.getElementById('useCorsProxy').checked = entry.usedProxy;
-                }
-                
                 Object.entries(entry.params).forEach(([key, value]) => {
                     const input = document.getElementById(`param_${key}`);
-                    if (input && key !== 'resource_id' && key !== 'apikey') {
+                    if (input && key !== 'resource_id' && key !== 'id' && key !== 'apikey') {
                         input.value = value;
                     }
                 });
                 
-                document.getElementById('requestUrl').innerHTML = `<pre>${entry.method || 'GET'} ${entry.url}${entry.usedProxy ? '\n\n(przez CORS Proxy)' : ''}</pre>`;
+                document.getElementById('requestUrl').innerHTML = `<pre>${entry.method || 'GET'} ${entry.url}</pre>`;
                 document.getElementById('responseJson').innerHTML = `<pre>${JSON.stringify(entry.response, null, 2)}</pre>`;
             }, 100);
             
@@ -747,6 +760,7 @@
 
         document.getElementById('endpoint').addEventListener('change', updateEndpointInfo);
         
+        // Inicjalizacja
         updateEndpointInfo();
     </script>
 </body>
