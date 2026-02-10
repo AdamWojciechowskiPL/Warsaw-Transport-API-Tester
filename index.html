@@ -381,18 +381,15 @@
                         <label class="form-label">Klucz API</label>
                         <input type="text" class="form-input" id="apiKey" value="34574ba5-4ce4-432b-ae87-0c26cec9809b">
                     </div>
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="useCorsProxy" checked>
-                        <label for="useCorsProxy">Użyj CORS Proxy (rozwiązuje błędy CORS w przeglądarce)</label>
-                    </div>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Wybierz endpoint</label>
                     <select class="form-select" id="endpoint">
-                        <option value="dbtimetable_get">dbtimetable_get - Rozkład jazdy</option>
                         <option value="busestrams_get">busestrams_get - Pozycje pojazdów</option>
-                        <option value="dbstore_get">dbstore_get - Lista przystanków</option>
+                        <option value="dbtimetable_get_stops">dbtimetable_get - Lista przystanków (dbstore)</option>
+                        <option value="dbtimetable_get_lines">dbtimetable_get - Linie na przystanku</option>
+                        <option value="dbtimetable_get_schedule">dbtimetable_get - Rozkład jazdy linii</option>
                     </select>
                 </div>
 
@@ -468,37 +465,51 @@
 
     <script>
         const API_BASE = 'https://api.um.warszawa.pl/api/action';
-        const CORS_PROXY = 'https://corsproxy.io/?';
         
         const endpoints = {
-            dbtimetable_get: {
-                name: 'dbtimetable_get',
-                id: 'e923fa0e-d96c-43f9-ae6e-60518c9f3238',
-                description: 'Pobiera rozkład jazdy dla konkretnego przystanku i linii',
-                defaultMethod: 'GET',
-                params: [
-                    { name: 'busstopId', label: 'ID przystanku', required: true, placeholder: '7009' },
-                    { name: 'busstopNr', label: 'Numer słupka', required: true, placeholder: '01' },
-                    { name: 'line', label: 'Numer linii', required: false, placeholder: '189' }
-                ]
-            },
             busestrams_get: {
-                name: 'busestrams_get',
+                action: 'busestrams_get',
+                name: 'Pozycje pojazdów',
                 id: 'f2e5503e-927d-4ad3-9500-4ab9e55deb59',
-                description: 'Pobiera aktualne pozycje autobusów (type=1) i tramwajów (type=2). Parametr type jest OBLIGATORYJNY.',
+                description: 'Pobiera aktualne pozycje autobusów (type=1) i tramwajów (type=2).',
                 defaultMethod: 'GET',
                 params: [
                     { name: 'type', label: 'Typ pojazdu (1=autobus, 2=tramwaj)', required: true, placeholder: '1' },
-                    { name: 'line', label: 'Numer linii (opcjonalny)', required: false, placeholder: '189' }
+                    { name: 'line', label: 'Numer linii', required: false, placeholder: '189' },
+                    { name: 'brigade', label: 'Numer brygady', required: false, placeholder: '2' }
                 ]
             },
-            dbstore_get: {
-                name: 'dbstore_get',
+            dbtimetable_get_stops: {
+                action: 'dbtimetable_get',
+                name: 'Lista przystanków',
                 id: 'ab75c33d-3a26-4342-b36a-6e5fef0a3ac3',
-                description: 'Pobiera listę wszystkich przystanków',
+                description: 'Pobiera listę wszystkich zespołów przystankowych i słupków.',
                 defaultMethod: 'GET',
                 params: [
-                    { name: 'name', label: 'Nazwa przystanku (filtr)', required: false, placeholder: 'Służewiec' }
+                    { name: 'name', label: 'Nazwa przystanku (filtr - opcjonalne)', required: false, placeholder: 'Centrum' }
+                ]
+            },
+            dbtimetable_get_lines: {
+                action: 'dbtimetable_get',
+                name: 'Linie na przystanku',
+                id: '88cd555f-6f31-43ca-9de4-66c479ad5942',
+                description: 'Pobiera listę linii zatrzymujących się na danym przystanku.',
+                defaultMethod: 'GET',
+                params: [
+                    { name: 'busstopId', label: 'ID przystanku (zespołu)', required: true, placeholder: '7009' },
+                    { name: 'busstopNr', label: 'Numer słupka', required: true, placeholder: '01' }
+                ]
+            },
+            dbtimetable_get_schedule: {
+                action: 'dbtimetable_get',
+                name: 'Rozkład jazdy linii',
+                id: 'e923fa0e-d96c-43f9-ae6e-60518c9f3238',
+                description: 'Pobiera rozkład jazdy (czasy odjazdów) dla konkretnego przystanku i linii.',
+                defaultMethod: 'GET',
+                params: [
+                    { name: 'busstopId', label: 'ID przystanku (zespołu)', required: true, placeholder: '7009' },
+                    { name: 'busstopNr', label: 'Numer słupka', required: true, placeholder: '01' },
+                    { name: 'line', label: 'Numer linii', required: true, placeholder: '189' }
                 ]
             }
         };
@@ -506,8 +517,8 @@
         let requestHistory = [];
 
         function updateEndpointInfo() {
-            const endpoint = document.getElementById('endpoint').value;
-            const info = endpoints[endpoint];
+            const endpointKey = document.getElementById('endpoint').value;
+            const info = endpoints[endpointKey];
             
             document.getElementById('endpointInfo').textContent = info.description;
             document.getElementById('httpMethod').value = info.defaultMethod || 'GET';
@@ -541,11 +552,10 @@
         }
 
         async function sendRequest() {
-            const endpoint = document.getElementById('endpoint').value;
+            const endpointKey = document.getElementById('endpoint').value;
             const apiKey = document.getElementById('apiKey').value;
             const method = document.getElementById('httpMethod').value;
-            const useCorsProxy = document.getElementById('useCorsProxy').checked;
-            const info = endpoints[endpoint];
+            const info = endpoints[endpointKey];
             
             if (!apiKey) {
                 showToast('❌ Wprowadź klucz API', true);
@@ -571,25 +581,23 @@
                 return;
             }
             
-            const baseUrl = `${API_BASE}/${endpoint}/?${params.toString()}`;
-            const url = useCorsProxy ? `${CORS_PROXY}${encodeURIComponent(baseUrl)}` : baseUrl;
+            const baseUrl = `${API_BASE}/${info.action}/?${params.toString()}`;
             
-            document.getElementById('requestUrl').innerHTML = `<pre>${method} ${baseUrl}${useCorsProxy ? '\n\n(przez CORS Proxy)' : ''}</pre>`;
+            document.getElementById('requestUrl').innerHTML = `<pre>${method} ${baseUrl}</pre>`;
             document.getElementById('responseJson').innerHTML = '<pre><div class="loading-spinner"></div> Ładowanie...</pre>';
             
             try {
                 const fetchOptions = { method: method };
                 
-                const response = await fetch(url, fetchOptions);
+                const response = await fetch(baseUrl, fetchOptions);
                 const data = await response.json();
                 
                 document.getElementById('responseJson').innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
                 
                 addToHistory({
-                    endpoint: endpoint,
+                    endpoint: info.name,
                     url: baseUrl,
                     method: method,
-                    usedProxy: useCorsProxy,
                     params: Object.fromEntries(params),
                     response: data,
                     status: response.ok ? 'success' : 'error',
@@ -598,13 +606,12 @@
                 
                 showToast('✓ Zapytanie wykonane pomyślnie');
             } catch (error) {
-                document.getElementById('responseJson').innerHTML = `<pre style="color: var(--color-danger);">Błąd: ${error.message}\n\n${useCorsProxy ? 'CORS Proxy jest włączony, ale wystąpił błąd.' : 'Włącz CORS Proxy w konfiguracji, aby rozwiązać problem z CORS.'}</pre>`;
+                document.getElementById('responseJson').innerHTML = `<pre style="color: var(--color-danger);">Błąd: ${error.message}\n\nUpewnij się, że nie blokuje Cię CORS (spróbuj wtyczki do przeglądarki) lub sprawdź połączenie.</pre>`;
                 
                 addToHistory({
-                    endpoint: endpoint,
+                    endpoint: info.name,
                     url: baseUrl,
                     method: method,
-                    usedProxy: useCorsProxy,
                     params: Object.fromEntries(params),
                     response: { error: error.message },
                     status: 'error',
@@ -642,14 +649,14 @@
                 header.className = 'history-header';
                 
                 const endpoint = document.createElement('div');
+                header.appendChild(endpoint);
                 endpoint.className = 'history-endpoint';
-                endpoint.innerHTML = `<span style="color: var(--color-accent)">${entry.method || 'GET'}</span> ${entry.endpoint}${entry.usedProxy ? ' <span style="color: var(--color-warning)">🔒 Proxy</span>' : ''}`;
+                endpoint.innerHTML = `<span style="color: var(--color-accent)">${entry.method || 'GET'}</span> ${entry.endpoint}`;
                 
                 const time = document.createElement('div');
                 time.className = 'history-time';
                 time.textContent = new Date(entry.timestamp).toLocaleString('pl-PL');
                 
-                header.appendChild(endpoint);
                 header.appendChild(time);
                 
                 const params = document.createElement('div');
@@ -675,16 +682,16 @@
         function loadFromHistory(index) {
             const entry = requestHistory[index];
             
-            document.getElementById('endpoint').value = entry.endpoint;
-            updateEndpointInfo();
-            
+            // Find key in endpoints object that matches entry.endpoint (name)
+            const endpointKey = Object.keys(endpoints).find(key => endpoints[key].name === entry.endpoint);
+            if (endpointKey) {
+                document.getElementById('endpoint').value = endpointKey;
+                updateEndpointInfo();
+            }
+
             setTimeout(() => {
                 if (entry.method) {
                     document.getElementById('httpMethod').value = entry.method;
-                }
-                
-                if (entry.usedProxy !== undefined) {
-                    document.getElementById('useCorsProxy').checked = entry.usedProxy;
                 }
                 
                 Object.entries(entry.params).forEach(([key, value]) => {
@@ -694,7 +701,7 @@
                     }
                 });
                 
-                document.getElementById('requestUrl').innerHTML = `<pre>${entry.method || 'GET'} ${entry.url}${entry.usedProxy ? '\n\n(przez CORS Proxy)' : ''}</pre>`;
+                document.getElementById('requestUrl').innerHTML = `<pre>${entry.method || 'GET'} ${entry.url}</pre>`;
                 document.getElementById('responseJson').innerHTML = `<pre>${JSON.stringify(entry.response, null, 2)}</pre>`;
             }, 100);
             
@@ -731,23 +738,4 @@
 
         function showToast(message, isError = false) {
             const toast = document.getElementById('toast');
-            const toastMessage = document.getElementById('toastMessage');
-            const icon = toast.querySelector('.toast-icon');
-            
-            toastMessage.textContent = message;
-            icon.textContent = isError ? '✗' : '✓';
-            toast.style.borderColor = isError ? 'var(--color-danger)' : 'var(--color-success)';
-            
-            toast.classList.add('show');
-            
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 3000);
-        }
-
-        document.getElementById('endpoint').addEventListener('change', updateEndpointInfo);
-        
-        updateEndpointInfo();
-    </script>
-</body>
-</html>
+            const toastMessage = document.getElementById('toastMessage');\n            const icon = toast.querySelector('.toast-icon');\n            \n            toastMessage.textContent = message;\n            icon.textContent = isError ? '✗' : '✓';\n            toast.style.borderColor = isError ? 'var(--color-danger)' : 'var(--color-success)';\n            \n            toast.classList.add('show');\n            \n            setTimeout(() => {\n                toast.classList.remove('show');\n            }, 3000);\n        }\n\n        document.getElementById('endpoint').addEventListener('change', updateEndpointInfo);\n        \n        updateEndpointInfo();\n    </script>\n</body>\n</html>
