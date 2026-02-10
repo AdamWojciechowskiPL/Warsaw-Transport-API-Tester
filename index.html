@@ -452,11 +452,10 @@
             busestrams_get: {
                 name: 'busestrams_get',
                 id: 'f2e5503e-927d-4ad3-9500-4ab9e55deb59',
-                description: 'Pobiera aktualne pozycje autobusów i tramwajów',
+                description: 'Pobiera aktualne pozycje autobusów (type=1) i tramwajów (type=2). Parametr type jest OBLIGATORYJNY.',
                 params: [
-                    { name: 'resource_id', label: 'Resource ID', required: false, placeholder: 'f2e5503e-927d-4ad3-9500-4ab9e55deb59' },
-                    { name: 'type', label: 'Typ (1=autobus, 2=tramwaj)', required: false, placeholder: '1' },
-                    { name: 'line', label: 'Numer linii', required: false, placeholder: '189' }
+                    { name: 'type', label: 'Typ pojazdu (1=autobus, 2=tramwaj)', required: true, placeholder: '1' },
+                    { name: 'line', label: 'Numer linii (opcjonalny)', required: false, placeholder: '189' }
                 ]
             },
             dbstore_get: {
@@ -464,7 +463,6 @@
                 id: 'ab75c33d-3a26-4342-b36a-6e5fef0a3ac3',
                 description: 'Pobiera listę wszystkich przystanków',
                 params: [
-                    { name: 'id', label: 'ID (stałe)', required: true, placeholder: 'ab75c33d-3a26-4342-b36a-6e5fef0a3ac3' },
                     { name: 'name', label: 'Nazwa przystanku (filtr)', required: false, placeholder: 'Służewiec' }
                 ]
             }
@@ -497,9 +495,6 @@
                 input.className = 'form-input';
                 input.id = `param_${param.name}`;
                 input.placeholder = param.placeholder;
-                if (param.name === 'id' || param.name === 'resource_id') {
-                    input.value = param.placeholder;
-                }
                 
                 formGroup.appendChild(label);
                 formGroup.appendChild(input);
@@ -520,17 +515,15 @@
             }
             
             const params = new URLSearchParams();
-            params.append('id', info.id);
+            params.append('resource_id', info.id);
             params.append('apikey', apiKey);
             
             let allRequiredFilled = true;
             info.params.forEach(param => {
                 const input = document.getElementById(`param_${param.name}`);
                 if (input && input.value) {
-                    if (param.name !== 'id') {
-                        params.append(param.name, input.value);
-                    }
-                } else if (param.required && param.name !== 'id') {
+                    params.append(param.name, input.value);
+                } else if (param.required) {
                     allRequiredFilled = false;
                 }
             });
@@ -621,7 +614,7 @@
                 const params = document.createElement('div');
                 params.className = 'history-params';
                 const paramsList = Object.entries(entry.params)
-                    .filter(([key]) => key !== 'id' && key !== 'apikey')
+                    .filter(([key]) => key !== 'resource_id' && key !== 'apikey')
                     .map(([key, value]) => `${key}=${value}`)
                     .join(', ');
                 params.textContent = paramsList || 'Brak parametrów';
@@ -647,7 +640,7 @@
             setTimeout(() => {
                 Object.entries(entry.params).forEach(([key, value]) => {
                     const input = document.getElementById(`param_${key}`);
-                    if (input && key !== 'id' && key !== 'apikey') {
+                    if (input && key !== 'resource_id' && key !== 'apikey') {
                         input.value = value;
                     }
                 });
@@ -709,4 +702,3 @@
     </script>
 </body>
 </html>
-
