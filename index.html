@@ -174,7 +174,8 @@
         }
 
         .btn-full {
-            width: 100%;\n            justify-content: center;
+            width: 100%;
+            justify-content: center;
         }
 
         .btn-group {
@@ -358,7 +359,8 @@
         .api-info {
             background: rgba(56, 189, 248, 0.1);
             border: 1px solid rgba(56, 189, 248, 0.3);
-            border-radius: 8px;\n            padding: 12px;
+            border-radius: 8px;
+            padding: 12px;
             margin-bottom: 20px;
             font-size: 13px;
             color: var(--color-text-secondary);
@@ -741,7 +743,8 @@
                 const status = document.createElement('span');
                 status.className = `history-status ${entry.status}`;
                 // Wyświetlaj kod HTTP w historii jeśli dostępny
-                status.textContent = entry.statusCode ? `${entry.statusCode} ${entry.statusText}` : (entry.status === 'success' ? 'Sukces' : 'Błąd');\n                
+                status.textContent = entry.statusCode ? `${entry.statusCode} ${entry.statusText}` : (entry.status === 'success' ? 'Sukces' : 'Błąd');
+                
                 item.appendChild(header);
                 item.appendChild(params);
                 item.appendChild(status);
@@ -756,7 +759,8 @@
             // Ustaw endpoint w select
             const endpointSelect = document.getElementById('endpoint');
             if (entry.endpointKey && endpoints[entry.endpointKey]) {
-                endpointSelect.value = entry.endpointKey;\n            }
+                endpointSelect.value = entry.endpointKey;
+            }
             
             updateEndpointInfo();
             
@@ -829,7 +833,8 @@
             
             setTimeout(() => {
                 toast.classList.remove('show');
-            }, 3000);\n        }
+            }, 3000);
+        }
 
         document.getElementById('endpoint').addEventListener('change', updateEndpointInfo);
         
