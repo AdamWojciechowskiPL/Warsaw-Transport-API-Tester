@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warsaw Transit API Tester</title>
+    <style>
+        :root {
+            --color-bg-primary: #0f172a;
+            --color-bg-secondary: #1e293b;
+            --color-bg-elevated: #334155;
+            --color-text-primary: #f1f5f9;
+            --color-text-secondary: #cbd5e1;
+            --color-text-muted: #94a3b8;
+            --color-accent: #38bdf8;
+            --color-accent-hover: #0ea5e9;
+            --color-success: #22c55e;
+            --color-warning: #f59e0b;
+            --color-danger: #ef4444;
+            --color-border: rgba(148, 163, 184, 0.2);
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root {
+                --color-bg-primary: #ffffff;
+                --color-bg-secondary: #f8fafc;
+                --color-bg-elevated: #f1f5f9;
+                --color-text-primary: #0f172a;
+                --color-text-secondary: #475569;
+                --color-text-muted: #64748b;
+                --color-accent: #0284c7;
+                --color-accent-hover: #0369a1;
+                --color-border: rgba(100, 116, 139, 0.2);
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            line-height: 1.6;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        header {
+            padding: 24px 0;
+            border-bottom: 1px solid var(--color-border);
+            margin-bottom: 32px;
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--color-text-primary);
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: var(--color-text-muted);
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: var(--color-bg-secondary);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid var(--color-border);
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .panel-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--color-text-primary);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--color-text-primary);
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--color-bg-elevated);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            color: var(--color-text-primary);
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--color-accent);
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+        }
+
+        .params-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--color-accent);
+            color: #0f172a;
+        }
+
+        .btn-primary:hover {
+            background: var(--color-accent-hover);
+        }
+
+        .btn-secondary {
+            background: var(--color-bg-elevated);
+            color: var(--color-text-primary);
+            border: 1px solid var(--color-border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--color-bg-primary);
+        }
+
+        .btn-full {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .response-container {
+            background: var(--color-bg-primary);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 16px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .response-container pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            background: var(--color-bg-elevated);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .history-item:hover {
+            border-color: var(--color-accent);
+            background: var(--color-bg-primary);
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .history-endpoint {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--color-text-primary);
+        }
+
+        .history-time {
+            font-size: 12px;
+            color: var(--color-text-muted);
+        }
+
+        .history-params {
+            font-size: 12px;
+            color: var(--color-text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .history-status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .history-status.success {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--color-success);
+        }
+
+        .history-status.error {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--color-danger);
+        }
+
+        .config-section {
+            background: var(--color-bg-elevated);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            display: none;
+            align-items: center;
+            gap: 12px;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            display: flex;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast-icon {
+            font-size: 20px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--color-border);
+            border-top-color: var(--color-accent);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--color-text-muted);
+        }
+
+        .api-info {
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: var(--color-text-secondary);
+        }
+
+        .copy-btn {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚍 Warsaw Transit API Tester</h1>
+            <p class="subtitle">Narzędzie do testowania API rozkładów komunikacji miejskiej</p>
+        </header>
+
+        <div class="main-grid">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Konfiguracja zapytania</h2>
+                </div>
+
+                <div class="config-section">
+                    <div class="form-group">
+                        <label class="form-label">Klucz API</label>
+                        <input type="text" class="form-input" id="apiKey" value="34574ba5-4ce4-432b-ae87-0c26cec9809b">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Wybierz endpoint</label>
+                    <select class="form-select" id="endpoint">
+                        <option value="dbtimetable_get">dbtimetable_get - Rozkład jazdy</option>
+                        <option value="busestrams_get">busestrams_get - Pozycje pojazdów</option>
+                        <option value="dbstore_get">dbstore_get - Lista przystanków</option>
+                    </select>
+                </div>
+
+                <div class="api-info" id="endpointInfo">
+                    Wybierz endpoint, aby zobaczyć dostępne parametry
+                </div>
+
+                <div id="paramsContainer"></div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary btn-full" onclick="sendRequest()">
+                        Wyślij zapytanie
+                    </button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Odpowiedź</h2>
+                    <div class="btn-group">
+                        <button class="btn btn-secondary copy-btn" onclick="copyRequest()">
+                            📋 Request
+                        </button>
+                        <button class="btn btn-secondary copy-btn" onclick="copyResponse()">
+                            📋 Response
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Request URL</label>
+                    <div class="response-container" id="requestUrl">
+                        <pre>Wyślij zapytanie, aby zobaczyć URL</pre>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Response JSON</label>
+                    <div class="response-container" id="responseJson">
+                        <pre>Wyślij zapytanie, aby zobaczyć odpowiedź</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <h2 class="panel-title">Historia zapytań</h2>
+                <button class="btn btn-secondary" onclick="clearHistory()">
+                    🗑️ Wyczyść
+                </button>
+            </div>
+            <div class="history-list" id="historyList">
+                <div class="empty-state">
+                    Brak historii zapytań. Wykonaj pierwsze zapytanie.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">
+        <span class="toast-icon">✓</span>
+        <span id="toastMessage">Skopiowano do schowka</span>
+    </div>
+
+    <script>
+        const API_BASE = 'https://api.um.warszawa.pl/api/action';
+        
+        const endpoints = {
+            dbtimetable_get: {
+                name: 'dbtimetable_get',
+                id: 'e923fa0e-d96c-43f9-ae6e-60518c9f3238',
+                description: 'Pobiera rozkład jazdy dla konkretnego przystanku i linii',
+                params: [
+                    { name: 'busstopId', label: 'ID przystanku', required: true, placeholder: '7009' },
+                    { name: 'busstopNr', label: 'Numer słupka', required: true, placeholder: '01' },
+                    { name: 'line', label: 'Numer linii', required: false, placeholder: '189' }
+                ]
+            },
+            busestrams_get: {
+                name: 'busestrams_get',
+                id: 'f2e5503e-927d-4ad3-9500-4ab9e55deb59',
+                description: 'Pobiera aktualne pozycje autobusów i tramwajów',
+                params: [
+                    { name: 'resource_id', label: 'Resource ID', required: false, placeholder: 'f2e5503e-927d-4ad3-9500-4ab9e55deb59' },
+                    { name: 'type', label: 'Typ (1=autobus, 2=tramwaj)', required: false, placeholder: '1' },
+                    { name: 'line', label: 'Numer linii', required: false, placeholder: '189' }
+                ]
+            },
+            dbstore_get: {
+                name: 'dbstore_get',
+                id: 'ab75c33d-3a26-4342-b36a-6e5fef0a3ac3',
+                description: 'Pobiera listę wszystkich przystanków',
+                params: [
+                    { name: 'id', label: 'ID (stałe)', required: true, placeholder: 'ab75c33d-3a26-4342-b36a-6e5fef0a3ac3' },
+                    { name: 'name', label: 'Nazwa przystanku (filtr)', required: false, placeholder: 'Służewiec' }
+                ]
+            }
+        };
+
+        let requestHistory = [];
+
+        function updateEndpointInfo() {
+            const endpoint = document.getElementById('endpoint').value;
+            const info = endpoints[endpoint];
+            
+            document.getElementById('endpointInfo').textContent = info.description;
+            
+            const paramsContainer = document.getElementById('paramsContainer');
+            paramsContainer.innerHTML = '';
+            
+            const paramsGrid = document.createElement('div');
+            paramsGrid.className = 'params-grid';
+            
+            info.params.forEach(param => {
+                const formGroup = document.createElement('div');
+                formGroup.className = 'form-group';
+                
+                const label = document.createElement('label');
+                label.className = 'form-label';
+                label.textContent = `${param.label}${param.required ? ' *' : ''}`;
+                
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'form-input';
+                input.id = `param_${param.name}`;
+                input.placeholder = param.placeholder;
+                if (param.name === 'id' || param.name === 'resource_id') {
+                    input.value = param.placeholder;
+                }
+                
+                formGroup.appendChild(label);
+                formGroup.appendChild(input);
+                paramsGrid.appendChild(formGroup);
+            });
+            
+            paramsContainer.appendChild(paramsGrid);
+        }
+
+        async function sendRequest() {
+            const endpoint = document.getElementById('endpoint').value;
+            const apiKey = document.getElementById('apiKey').value;
+            const info = endpoints[endpoint];
+            
+            if (!apiKey) {
+                showToast('❌ Wprowadź klucz API', true);
+                return;
+            }
+            
+            const params = new URLSearchParams();
+            params.append('id', info.id);
+            params.append('apikey', apiKey);
+            
+            let allRequiredFilled = true;
+            info.params.forEach(param => {
+                const input = document.getElementById(`param_${param.name}`);
+                if (input && input.value) {
+                    if (param.name !== 'id') {
+                        params.append(param.name, input.value);
+                    }
+                } else if (param.required && param.name !== 'id') {
+                    allRequiredFilled = false;
+                }
+            });
+            
+            if (!allRequiredFilled) {
+                showToast('❌ Wypełnij wszystkie wymagane pola', true);
+                return;
+            }
+            
+            const url = `${API_BASE}/${endpoint}/?${params.toString()}`;
+            
+            document.getElementById('requestUrl').innerHTML = `<pre>${url}</pre>`;
+            document.getElementById('responseJson').innerHTML = '<pre><div class="loading-spinner"></div> Ładowanie...</pre>';
+            
+            try {
+                const fetchOptions = endpoint === 'busestrams_get' 
+                    ? { method: 'POST' }
+                    : { method: 'GET' };
+                
+                const response = await fetch(url, fetchOptions);
+                const data = await response.json();
+                
+                document.getElementById('responseJson').innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                
+                addToHistory({
+                    endpoint: endpoint,
+                    url: url,
+                    params: Object.fromEntries(params),
+                    response: data,
+                    status: response.ok ? 'success' : 'error',
+                    timestamp: new Date()
+                });
+                
+                showToast('✓ Zapytanie wykonane pomyślnie');
+            } catch (error) {
+                document.getElementById('responseJson').innerHTML = `<pre style="color: var(--color-danger);">Błąd: ${error.message}</pre>`;
+                
+                addToHistory({
+                    endpoint: endpoint,
+                    url: url,
+                    params: Object.fromEntries(params),
+                    response: { error: error.message },
+                    status: 'error',
+                    timestamp: new Date()
+                });
+                
+                showToast('❌ Błąd wykonania zapytania', true);
+            }
+        }
+
+        function addToHistory(entry) {
+            requestHistory.unshift(entry);
+            if (requestHistory.length > 50) {
+                requestHistory = requestHistory.slice(0, 50);
+            }
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const historyList = document.getElementById('historyList');
+            
+            if (requestHistory.length === 0) {
+                historyList.innerHTML = '<div class="empty-state">Brak historii zapytań. Wykonaj pierwsze zapytanie.</div>';
+                return;
+            }
+            
+            historyList.innerHTML = '';
+            
+            requestHistory.forEach((entry, index) => {
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                item.onclick = () => loadFromHistory(index);
+                
+                const header = document.createElement('div');
+                header.className = 'history-header';
+                
+                const endpoint = document.createElement('div');
+                endpoint.className = 'history-endpoint';
+                endpoint.textContent = entry.endpoint;
+                
+                const time = document.createElement('div');
+                time.className = 'history-time';
+                time.textContent = new Date(entry.timestamp).toLocaleString('pl-PL');
+                
+                header.appendChild(endpoint);
+                header.appendChild(time);
+                
+                const params = document.createElement('div');
+                params.className = 'history-params';
+                const paramsList = Object.entries(entry.params)
+                    .filter(([key]) => key !== 'id' && key !== 'apikey')
+                    .map(([key, value]) => `${key}=${value}`)
+                    .join(', ');
+                params.textContent = paramsList || 'Brak parametrów';
+                
+                const status = document.createElement('span');
+                status.className = `history-status ${entry.status}`;
+                status.textContent = entry.status === 'success' ? 'Sukces' : 'Błąd';
+                
+                item.appendChild(header);
+                item.appendChild(params);
+                item.appendChild(status);
+                
+                historyList.appendChild(item);
+            });
+        }
+
+        function loadFromHistory(index) {
+            const entry = requestHistory[index];
+            
+            document.getElementById('endpoint').value = entry.endpoint;
+            updateEndpointInfo();
+            
+            setTimeout(() => {
+                Object.entries(entry.params).forEach(([key, value]) => {
+                    const input = document.getElementById(`param_${key}`);
+                    if (input && key !== 'id' && key !== 'apikey') {
+                        input.value = value;
+                    }
+                });
+                
+                document.getElementById('requestUrl').innerHTML = `<pre>${entry.url}</pre>`;
+                document.getElementById('responseJson').innerHTML = `<pre>${JSON.stringify(entry.response, null, 2)}</pre>`;
+            }, 100);
+            
+            showToast('✓ Załadowano zapytanie z historii');
+        }
+
+        function clearHistory() {
+            if (confirm('Czy na pewno chcesz wyczyścić całą historię?')) {
+                requestHistory = [];
+                renderHistory();
+                showToast('✓ Historia wyczyszczona');
+            }
+        }
+
+        async function copyRequest() {
+            const requestUrl = document.getElementById('requestUrl').textContent;
+            try {
+                await navigator.clipboard.writeText(requestUrl);
+                showToast('✓ Request URL skopiowany do schowka');
+            } catch (err) {
+                showToast('❌ Nie udało się skopiować', true);
+            }
+        }
+
+        async function copyResponse() {
+            const responseJson = document.getElementById('responseJson').textContent;
+            try {
+                await navigator.clipboard.writeText(responseJson);
+                showToast('✓ Response JSON skopiowany do schowka');
+            } catch (err) {
+                showToast('❌ Nie udało się skopiować', true);
+            }
+        }
+
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            const icon = toast.querySelector('.toast-icon');
+            
+            toastMessage.textContent = message;
+            icon.textContent = isError ? '✗' : '✓';
+            toast.style.borderColor = isError ? 'var(--color-danger)' : 'var(--color-success)';
+            
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        document.getElementById('endpoint').addEventListener('change', updateEndpointInfo);
+        
+        updateEndpointInfo();
+    </script>
+</body>
+</html>
+
