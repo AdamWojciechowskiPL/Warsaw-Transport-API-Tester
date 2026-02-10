@@ -174,8 +174,7 @@
         }
 
         .btn-full {
-            width: 100%;
-            justify-content: center;
+            width: 100%;\n            justify-content: center;
         }
 
         .btn-group {
@@ -359,8 +358,7 @@
         .api-info {
             background: rgba(56, 189, 248, 0.1);
             border: 1px solid rgba(56, 189, 248, 0.3);
-            border-radius: 8px;
-            padding: 12px;
+            border-radius: 8px;\n            padding: 12px;
             margin-bottom: 20px;
             font-size: 13px;
             color: var(--color-text-secondary);
@@ -541,7 +539,7 @@
                 id: 'f2e5503e-927d-4ad3-9500-4ab9e55deb59',
                 idParam: 'resource_id',
                 description: 'Pobiera aktualne współrzędne pojazdów (autobusy/tramwaje) w czasie rzeczywistym. Aktualizacja co 10s.',
-                defaultMethod: 'POST',
+                defaultMethod: 'GET',
                 params: [
                     { name: 'type', label: 'Typ pojazdu (1=autobus, 2=tramwaj)', required: true, placeholder: '1' }
                 ]
@@ -667,7 +665,14 @@
                 // Błąd sieciowy
                 updateStatusDisplay('ERR', 'Błąd sieci / CORS', true);
 
-                document.getElementById('responseJson').innerHTML = `<pre style="color: var(--color-danger);">Błąd: ${error.message}\n\nUpewnij się, że serwer API pozwala na połączenia CORS lub użyj wtyczki przeglądarki wyłączającej CORS do testów.</pre>`;
+                let errorMsg = `Błąd: ${error.message}\n\n`;
+                if (method === 'POST') {
+                    errorMsg += 'Dla metody POST serwer API może blokować zapytania z przeglądarki (CORS). Spróbuj użyć metody GET.';
+                } else {
+                    errorMsg += 'Upewnij się, że serwer API pozwala na połączenia CORS lub użyj wtyczki przeglądarki wyłączającej CORS do testów.';
+                }
+
+                document.getElementById('responseJson').innerHTML = `<pre style="color: var(--color-danger);">${errorMsg}</pre>`;
                 
                 addToHistory({
                     endpointKey: endpointKey,
@@ -736,8 +741,7 @@
                 const status = document.createElement('span');
                 status.className = `history-status ${entry.status}`;
                 // Wyświetlaj kod HTTP w historii jeśli dostępny
-                status.textContent = entry.statusCode ? `${entry.statusCode} ${entry.statusText}` : (entry.status === 'success' ? 'Sukces' : 'Błąd');
-                
+                status.textContent = entry.statusCode ? `${entry.statusCode} ${entry.statusText}` : (entry.status === 'success' ? 'Sukces' : 'Błąd');\n                
                 item.appendChild(header);
                 item.appendChild(params);
                 item.appendChild(status);
@@ -752,8 +756,7 @@
             // Ustaw endpoint w select
             const endpointSelect = document.getElementById('endpoint');
             if (entry.endpointKey && endpoints[entry.endpointKey]) {
-                endpointSelect.value = entry.endpointKey;
-            }
+                endpointSelect.value = entry.endpointKey;\n            }
             
             updateEndpointInfo();
             
@@ -763,7 +766,7 @@
                 }
                 
                 Object.entries(entry.params).forEach(([key, value]) => {
-                    const input = document.getElementById(`param_${key}`);
+                    const input = document.getElementById('param_' + key);
                     if (input && key !== 'resource_id' && key !== 'id' && key !== 'apikey') {
                         input.value = value;
                     }
@@ -826,8 +829,7 @@
             
             setTimeout(() => {
                 toast.classList.remove('show');
-            }, 3000);
-        }
+            }, 3000);\n        }
 
         document.getElementById('endpoint').addEventListener('change', updateEndpointInfo);
         
