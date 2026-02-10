@@ -373,6 +373,14 @@
                     </select>
                 </div>
 
+                <div class="form-group">
+                    <label class="form-label">Metoda HTTP</label>
+                    <select class="form-select" id="httpMethod">
+                        <option value="GET">GET</option>
+                        <option value="POST">POST</option>
+                    </select>
+                </div>
+
                 <div class="api-info" id="endpointInfo">
                     Wybierz endpoint, aby zobaczyć dostępne parametry
                 </div>
@@ -443,6 +451,7 @@
                 name: 'dbtimetable_get',
                 id: 'e923fa0e-d96c-43f9-ae6e-60518c9f3238',
                 description: 'Pobiera rozkład jazdy dla konkretnego przystanku i linii',
+                defaultMethod: 'GET',
                 params: [
                     { name: 'busstopId', label: 'ID przystanku', required: true, placeholder: '7009' },
                     { name: 'busstopNr', label: 'Numer słupka', required: true, placeholder: '01' },
@@ -453,6 +462,7 @@
                 name: 'busestrams_get',
                 id: 'f2e5503e-927d-4ad3-9500-4ab9e55deb59',
                 description: 'Pobiera aktualne pozycje autobusów (type=1) i tramwajów (type=2). Parametr type jest OBLIGATORYJNY.',
+                defaultMethod: 'GET',
                 params: [
                     { name: 'type', label: 'Typ pojazdu (1=autobus, 2=tramwaj)', required: true, placeholder: '1' },
                     { name: 'line', label: 'Numer linii (opcjonalny)', required: false, placeholder: '189' }
@@ -462,6 +472,7 @@
                 name: 'dbstore_get',
                 id: 'ab75c33d-3a26-4342-b36a-6e5fef0a3ac3',
                 description: 'Pobiera listę wszystkich przystanków',
+                defaultMethod: 'GET',
                 params: [
                     { name: 'name', label: 'Nazwa przystanku (filtr)', required: false, placeholder: 'Służewiec' }
                 ]
@@ -475,6 +486,8 @@
             const info = endpoints[endpoint];
             
             document.getElementById('endpointInfo').textContent = info.description;
+            // Set default method
+            document.getElementById('httpMethod').value = info.defaultMethod || 'GET';
             
             const paramsContainer = document.getElementById('paramsContainer');
             paramsContainer.innerHTML = '';
@@ -507,6 +520,7 @@
         async function sendRequest() {
             const endpoint = document.getElementById('endpoint').value;
             const apiKey = document.getElementById('apiKey').value;
+            const method = document.getElementById('httpMethod').value;
             const info = endpoints[endpoint];
             
             if (!apiKey) {
@@ -535,13 +549,11 @@
             
             const url = `${API_BASE}/${endpoint}/?${params.toString()}`;
             
-            document.getElementById('requestUrl').innerHTML = `<pre>${url}</pre>`;
+            document.getElementById('requestUrl').innerHTML = `<pre>${method} ${url}</pre>`;
             document.getElementById('responseJson').innerHTML = '<pre><div class="loading-spinner"></div> Ładowanie...</pre>';
             
             try {
-                const fetchOptions = endpoint === 'busestrams_get' 
-                    ? { method: 'POST' }
-                    : { method: 'GET' };
+                const fetchOptions = { method: method };
                 
                 const response = await fetch(url, fetchOptions);
                 const data = await response.json();
@@ -551,6 +563,7 @@
                 addToHistory({
                     endpoint: endpoint,
                     url: url,
+                    method: method,
                     params: Object.fromEntries(params),
                     response: data,
                     status: response.ok ? 'success' : 'error',
@@ -559,11 +572,12 @@
                 
                 showToast('✓ Zapytanie wykonane pomyślnie');
             } catch (error) {
-                document.getElementById('responseJson').innerHTML = `<pre style="color: var(--color-danger);">Błąd: ${error.message}</pre>`;
+                document.getElementById('responseJson').innerHTML = `<pre style="color: var(--color-danger);">Błąd: ${error.message}\n\nJeśli widzisz 'NetworkError', może to oznaczać problem z CORS (blokada przeglądarki). Spróbuj innej metody HTTP lub wtyczki CORS.</pre>`;
                 
                 addToHistory({
                     endpoint: endpoint,
                     url: url,
+                    method: method,
                     params: Object.fromEntries(params),
                     response: { error: error.message },
                     status: 'error',
@@ -602,7 +616,7 @@
                 
                 const endpoint = document.createElement('div');
                 endpoint.className = 'history-endpoint';
-                endpoint.textContent = entry.endpoint;
+                endpoint.innerHTML = `<span style="color: var(--color-accent)">${entry.method || 'GET'}</span> ${entry.endpoint}`;
                 
                 const time = document.createElement('div');
                 time.className = 'history-time';
@@ -638,6 +652,10 @@
             updateEndpointInfo();
             
             setTimeout(() => {
+                if (entry.method) {
+                    document.getElementById('httpMethod').value = entry.method;
+                }
+                
                 Object.entries(entry.params).forEach(([key, value]) => {
                     const input = document.getElementById(`param_${key}`);
                     if (input && key !== 'resource_id' && key !== 'apikey') {
@@ -645,7 +663,7 @@
                     }
                 });
                 
-                document.getElementById('requestUrl').innerHTML = `<pre>${entry.url}</pre>`;
+                document.getElementById('requestUrl').innerHTML = `<pre>${entry.method || 'GET'} ${entry.url}</pre>`;
                 document.getElementById('responseJson').innerHTML = `<pre>${JSON.stringify(entry.response, null, 2)}</pre>`;
             }, 100);
             
