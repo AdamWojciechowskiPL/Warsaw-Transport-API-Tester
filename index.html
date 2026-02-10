@@ -501,6 +501,8 @@
 
     <script>
         const API_BASE = 'https://api.um.warszawa.pl/api/action';
+        // Nowy adres proxy dla metod wymagających obejścia CORS
+        const PROXY_BASE = 'https://warsaw-transit-tracker-production.up.railway.app/api';
         
         const endpoints = {
             dbstore_get: {
@@ -542,6 +544,8 @@
                 idParam: 'resource_id',
                 description: 'Pobiera aktualne współrzędne pojazdów (autobusy/tramwaje) w czasie rzeczywistym. Aktualizacja co 10s.',
                 defaultMethod: 'GET',
+                // Flaga oznaczająca użycie proxy dla tego endpointu
+                useProxy: true,
                 params: [
                     { name: 'type', label: 'Typ pojazdu (1=autobus, 2=tramwaj)', required: true, placeholder: '1' }
                 ]
@@ -554,7 +558,12 @@
             const endpointKey = document.getElementById('endpoint').value;
             const info = endpoints[endpointKey];
             
-            document.getElementById('endpointInfo').textContent = info.description;
+            let description = info.description;
+            if (info.useProxy) {
+                description += ' (Zapytanie przekierowane przez Proxy w celu uniknięcia błędu CORS)';
+            }
+            
+            document.getElementById('endpointInfo').textContent = description;
             document.getElementById('httpMethod').value = info.defaultMethod || 'GET';
             
             const paramsContainer = document.getElementById('paramsContainer');
@@ -614,7 +623,7 @@
             
             let allRequiredFilled = true;
             info.params.forEach(param => {
-                const input = document.getElementById(`param_${param.name}`);
+                const input = document.getElementById('param_' + param.name);
                 if (input && input.value) {
                     params.append(param.name, input.value);
                 } else if (param.required) {
@@ -627,7 +636,15 @@
                 return;
             }
             
-            const baseUrl = `${API_BASE}/${info.methodName}/?${params.toString()}`;
+            // Decyzja czy użyć PROXY czy API bezpośrednio
+            let baseUrl;
+            if (info.useProxy) {
+                // Dla proxy: endpoint to /nazwa_metody/
+                baseUrl = `${PROXY_BASE}/${info.methodName}/?${params.toString()}`;
+            } else {
+                baseUrl = `${API_BASE}/${info.methodName}/?${params.toString()}`;
+            }
+            
             const url = baseUrl;
             
             document.getElementById('requestUrl').innerHTML = `<pre>${method} ${baseUrl}</pre>`;
@@ -668,7 +685,9 @@
                 updateStatusDisplay('ERR', 'Błąd sieci / CORS', true);
 
                 let errorMsg = `Błąd: ${error.message}\n\n`;
-                if (method === 'POST') {
+                if (info.useProxy) {
+                    errorMsg += 'Błąd połączenia z Proxy. Sprawdź czy backend na Railway działa poprawnie.';
+                } else if (method === 'POST') {
                     errorMsg += 'Dla metody POST serwer API może blokować zapytania z przeglądarki (CORS). Spróbuj użyć metody GET.';
                 } else {
                     errorMsg += 'Upewnij się, że serwer API pozwala na połączenia CORS lub użyj wtyczki przeglądarki wyłączającej CORS do testów.';
