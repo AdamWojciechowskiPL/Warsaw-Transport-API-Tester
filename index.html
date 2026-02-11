@@ -371,23 +371,52 @@
             font-size: 12px;
         }
 
-        .checkbox-group {
+        .radio-group {
+            display: flex;
+            gap: 16px;
+            padding: 12px;
+            background: var(--color-bg-elevated);
+            border-radius: 8px;
+            border: 1px solid var(--color-border);
+        }
+
+        .radio-option {
             display: flex;
             align-items: center;
             gap: 8px;
-            margin-top: 12px;
+            cursor: pointer;
         }
 
-        .checkbox-group input[type="checkbox"] {
+        .radio-option input[type="radio"] {
             width: 18px;
             height: 18px;
             cursor: pointer;
+            accent-color: var(--color-accent);
         }
 
-        .checkbox-group label {
+        .radio-option label {
             cursor: pointer;
-            font-size: 13px;
+            font-size: 14px;
             margin: 0;
+        }
+
+        .connection-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .badge-direct {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--color-success);
+        }
+
+        .badge-proxy {
+            background: rgba(56, 189, 248, 0.15);
+            color: var(--color-accent);
         }
     </style>
 </head>
@@ -408,6 +437,20 @@
                     <div class="form-group">
                         <label class="form-label">Klucz API</label>
                         <input type="text" class="form-input" id="apiKey" value="34574ba5-4ce4-432b-ae87-0c26cec9809b">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Typ połączenia</label>
+                    <div class="radio-group">
+                        <div class="radio-option">
+                            <input type="radio" id="connectionDirect" name="connectionType" value="direct" checked>
+                            <label for="connectionDirect">🌐 Bezpośrednie (API)</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" id="connectionProxy" name="connectionType" value="proxy">
+                            <label for="connectionProxy">🔄 Przez Backend (Proxy)</label>
+                        </div>
                     </div>
                 </div>
 
@@ -501,7 +544,6 @@
 
     <script>
         const API_BASE = 'https://api.um.warszawa.pl/api/action';
-        // Nowy adres proxy dla metod wymagających obejścia CORS
         const PROXY_BASE = 'https://warsaw-transit-tracker-production.up.railway.app/api';
         
         const endpoints = {
@@ -544,8 +586,6 @@
                 idParam: 'resource_id',
                 description: 'Pobiera aktualne współrzędne pojazdów (autobusy/tramwaje) w czasie rzeczywistym. Aktualizacja co 10s.',
                 defaultMethod: 'GET',
-                // Flaga oznaczająca użycie proxy dla tego endpointu
-                useProxy: true,
                 params: [
                     { name: 'type', label: 'Typ pojazdu (1=autobus, 2=tramwaj)', required: true, placeholder: '1' }
                 ]
@@ -554,13 +594,18 @@
 
         let requestHistory = [];
 
+        function getConnectionType() {
+            return document.querySelector('input[name="connectionType"]:checked').value;
+        }
+
         function updateEndpointInfo() {
             const endpointKey = document.getElementById('endpoint').value;
             const info = endpoints[endpointKey];
+            const connectionType = getConnectionType();
             
             let description = info.description;
-            if (info.useProxy) {
-                description += ' (Zapytanie przekierowane przez Proxy w celu uniknięcia błędu CORS)';
+            if (connectionType === 'proxy') {
+                description += ' (Zapytanie będzie przekierowane przez Backend Proxy)';
             }
             
             document.getElementById('endpointInfo').textContent = description;
@@ -609,6 +654,7 @@
             const endpointKey = document.getElementById('endpoint').value;
             const apiKey = document.getElementById('apiKey').value;
             const method = document.getElementById('httpMethod').value;
+            const connectionType = getConnectionType();
             const info = endpoints[endpointKey];
             
             if (!apiKey) {
@@ -617,7 +663,6 @@
             }
             
             const params = new URLSearchParams();
-            // Dynamiczny parametr ID zgodny z dokumentacją (id dla timetable, resource_id dla buses)
             params.append(info.idParam, info.id);
             params.append('apikey', apiKey);
             
@@ -636,10 +681,9 @@
                 return;
             }
             
-            // Decyzja czy użyć PROXY czy API bezpośrednio
+            // Wybór URL na podstawie typu połączenia
             let baseUrl;
-            if (info.useProxy) {
-                // Dla proxy: endpoint to /nazwa_metody/
+            if (connectionType === 'proxy') {
                 baseUrl = `${PROXY_BASE}/${info.methodName}/?${params.toString()}`;
             } else {
                 baseUrl = `${API_BASE}/${info.methodName}/?${params.toString()}`;
@@ -650,7 +694,6 @@
             document.getElementById('requestUrl').innerHTML = `<pre>${method} ${baseUrl}</pre>`;
             document.getElementById('responseJson').innerHTML = '<pre><div class="loading-spinner"></div> Ładowanie...</pre>';
             
-            // Reset status
             document.getElementById('responseStatus').className = 'status-indicator';
             document.getElementById('responseStatus').querySelector('.status-code').textContent = '...';
             document.getElementById('responseStatus').querySelector('.status-text').textContent = 'Wysyłanie...';
@@ -661,7 +704,6 @@
                 const response = await fetch(url, fetchOptions);
                 const data = await response.json();
                 
-                // Aktualizacja statusu
                 updateStatusDisplay(response.status, response.statusText || (response.ok ? 'OK' : 'Error'), !response.ok);
 
                 document.getElementById('responseJson').innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
@@ -671,6 +713,7 @@
                     methodName: info.methodName,
                     url: baseUrl,
                     method: method,
+                    connectionType: connectionType,
                     params: Object.fromEntries(params),
                     response: data,
                     statusCode: response.status,
@@ -681,16 +724,15 @@
                 
                 showToast('✓ Zapytanie wykonane pomyślnie');
             } catch (error) {
-                // Błąd sieciowy
                 updateStatusDisplay('ERR', 'Błąd sieci / CORS', true);
 
                 let errorMsg = `Błąd: ${error.message}\n\n`;
-                if (info.useProxy) {
+                if (connectionType === 'proxy') {
                     errorMsg += 'Błąd połączenia z Proxy. Sprawdź czy backend na Railway działa poprawnie.';
                 } else if (method === 'POST') {
-                    errorMsg += 'Dla metody POST serwer API może blokować zapytania z przeglądarki (CORS). Spróbuj użyć metody GET.';
+                    errorMsg += 'Dla metody POST serwer API może blokować zapytania z przeglądarki (CORS). Spróbuj użyć metody GET lub połączenia przez Proxy.';
                 } else {
-                    errorMsg += 'Upewnij się, że serwer API pozwala na połączenia CORS lub użyj wtyczki przeglądarki wyłączającej CORS do testów.';
+                    errorMsg += 'Błąd CORS - serwer API blokuje zapytania z przeglądarki. Spróbuj użyć połączenia przez Backend (Proxy).';
                 }
 
                 document.getElementById('responseJson').innerHTML = `<pre style="color: var(--color-danger);">${errorMsg}</pre>`;
@@ -700,6 +742,7 @@
                     methodName: info.methodName,
                     url: baseUrl,
                     method: method,
+                    connectionType: connectionType,
                     params: Object.fromEntries(params),
                     response: { error: error.message },
                     statusCode: 'ERR',
@@ -742,7 +785,12 @@
 
                 const endpoint = document.createElement('div');
                 endpoint.className = 'history-endpoint';
-                endpoint.innerHTML = `<span style="color: var(--color-accent)">${entry.method || 'GET'}</span> ${endpointLabel}`;
+                
+                const connectionBadge = entry.connectionType === 'proxy' 
+                    ? '<span class="connection-badge badge-proxy">Proxy</span>' 
+                    : '<span class="connection-badge badge-direct">Direct</span>';
+                
+                endpoint.innerHTML = `<span style="color: var(--color-accent)">${entry.method || 'GET'}</span> ${endpointLabel}${connectionBadge}`;
                 
                 const time = document.createElement('div');
                 time.className = 'history-time';
@@ -761,7 +809,6 @@
                 
                 const status = document.createElement('span');
                 status.className = `history-status ${entry.status}`;
-                // Wyświetlaj kod HTTP w historii jeśli dostępny
                 status.textContent = entry.statusCode ? `${entry.statusCode} ${entry.statusText}` : (entry.status === 'success' ? 'Sukces' : 'Błąd');
                 
                 item.appendChild(header);
@@ -775,10 +822,15 @@
         function loadFromHistory(index) {
             const entry = requestHistory[index];
             
-            // Ustaw endpoint w select
             const endpointSelect = document.getElementById('endpoint');
             if (entry.endpointKey && endpoints[entry.endpointKey]) {
                 endpointSelect.value = entry.endpointKey;
+            }
+            
+            // Ustaw typ połączenia
+            if (entry.connectionType) {
+                const radioToCheck = entry.connectionType === 'proxy' ? 'connectionProxy' : 'connectionDirect';
+                document.getElementById(radioToCheck).checked = true;
             }
             
             updateEndpointInfo();
@@ -795,7 +847,6 @@
                     }
                 });
                 
-                // Przywróć status
                 if (entry.statusCode) {
                     updateStatusDisplay(entry.statusCode, entry.statusText, entry.status === 'error');
                 } else {
@@ -856,6 +907,9 @@
         }
 
         document.getElementById('endpoint').addEventListener('change', updateEndpointInfo);
+        document.querySelectorAll('input[name="connectionType"]').forEach(radio => {
+            radio.addEventListener('change', updateEndpointInfo);
+        });
         
         // Inicjalizacja
         updateEndpointInfo();
